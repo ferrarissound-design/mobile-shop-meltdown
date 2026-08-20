@@ -16,36 +16,47 @@ export const GIVEN_NAMES = [
 ];
 
 // ---------- 店員タイプ ----------
+// resilience : ストレス段階の閾値をずらす(高いほど粘る)
+// panic      : 高ストレス時にパニックを起こす確率
+// conflict   : 高ストレス時に客と衝突する確率
+// push       : 混雑時でも追加提案を続ける度合い(接客が延びる)
+// breakdown  : 限界時の影響の大きさ(平穏度ダメージ・離脱時間)
 export const STAFF_TYPES = [
   {
     id: 'rookie', name: '新人', color: 0x6fb3e0,
-    desc: '処理速度が遅くミスが多い。ストレスが溜まりやすい。',
+    desc: '処理速度が遅くミスが多い。難案件でパニックになりやすい。',
     speed: 0.62, skill: 0.50, mistake: 0.22, stressGain: 1.55, satisfy: 0.90, salesMul: 0.7,
+    resilience: -8, panic: 0.55, conflict: 0.05, push: 0, breakdown: 0.9,
   },
   {
     id: 'veteran', name: 'ベテラン', color: 0x3f7f6f,
-    desc: '処理速度が速く、難しい案件にも強い。',
+    desc: '処理速度が速く難案件にも強い。ただし一度限界を迎えると影響が大きい。',
     speed: 1.35, skill: 1.00, mistake: 0.05, stressGain: 0.70, satisfy: 1.05, salesMul: 1.0,
+    resilience: 12, panic: 0.05, conflict: 0.12, push: 0, breakdown: 1.9,
   },
   {
     id: 'polite', name: '超丁寧', color: 0xc98fb8,
     desc: '客の満足度が上がりやすいが、接客時間が長い。',
     speed: 0.72, skill: 0.88, mistake: 0.06, stressGain: 0.95, satisfy: 1.45, salesMul: 0.95,
+    resilience: 4, panic: 0.15, conflict: 0.04, push: 0.15, breakdown: 1.1,
   },
   {
     id: 'sales', name: '売上至上主義', color: 0xe0a43f,
-    desc: '契約率が高い。オプション提案が多く客を怒らせることがある。',
+    desc: '契約率が高い。混雑していても追加提案を続けて接客が長引く。',
     speed: 1.05, skill: 0.82, mistake: 0.10, stressGain: 0.85, satisfy: 0.72, salesMul: 2.0,
+    resilience: 6, panic: 0.1, conflict: 0.18, push: 1.0, breakdown: 1.2,
   },
   {
     id: 'avoider', name: '面倒事回避型', color: 0x8a9bb0,
-    desc: '簡単な案件は高速。難しい案件でストレスが急上昇する。',
+    desc: '簡単な案件は高速。難しい案件でストレスが急上昇し、席を外したがる。',
     speed: 1.10, skill: 0.75, mistake: 0.12, stressGain: 1.15, satisfy: 0.88, salesMul: 0.85,
+    resilience: -2, panic: 0.2, conflict: 0.08, push: 0, breakdown: 0.8, escape: 1.0,
   },
   {
     id: 'shorttemper', name: '短気', color: 0xd0705f,
     desc: '能力は高いが、ストレスが溜まると客と衝突する。',
     speed: 1.25, skill: 0.95, mistake: 0.09, stressGain: 1.30, satisfy: 0.85, salesMul: 1.05,
+    resilience: 0, panic: 0.1, conflict: 1.0, push: 0.1, breakdown: 1.3,
   },
 ];
 
@@ -226,3 +237,142 @@ export const BREAK_LINES = ['ちょっとバックヤード行ってきます', 
 export const MELTDOWN_LINES = ['ちょっとバックヤード行ってきます……', 'すみません、限界です', '……ちょっと、無理かもしれません'];
 export const QUIT_LINES = ['もう無理です', '辞めます。今日で辞めます', 'お先に失礼します。永遠に'];
 export const CONFLICT_LINES = ['だから、さっきから言ってますよね？', 'それは無理だと申し上げました', '……こちらの話も聞いてください'];
+
+// ============================================================
+// 追加データ(崩壊連鎖アップデート)
+// ============================================================
+
+// ---------- ストレス段階ごとの店員のセリフ ----------
+// 中ストレス:少し疲れる / 高ストレス:無言・バックヤードを見る / 限界:破綻
+export const STAFF_TIRED = [
+  'えー、はい、はい', 'ちょっと確認しますね……', 'もう少しだけお時間を',
+  'そうですね……はい', '（時計を見る）', 'えーっと、どこまででしたっけ',
+];
+export const STAFF_SILENT = [
+  '……', '（無言）', '（バックヤードを見る）', '（画面をじっと見ている）',
+  '（手が止まっている）', '……はい', '（返事が遅れる）',
+];
+export const STAFF_PANIC = [
+  'あっ、すみません、あの、えっと', '先輩、これ、これって……',
+  '……ちょっと待ってください、待ってください', 'あれ、あれ、消えた',
+  'すみません、もう一回、最初から……',
+];
+export const STAFF_LIMIT = [
+  '……もう、無理です', '……ちょっと、すみません', '（席を立った）',
+  '……（何も言わずに立ち上がった）',
+];
+export const CLAIM_LINES = [
+  '大変申し訳ございません', 'お待たせして申し訳ありません',
+  '事情をお伺いします', '責任者として対応いたします', 'ご不快な思いをさせてしまい……',
+];
+export const REFUSE_LINES = [
+  '……すみません、今は',
+  '（新しいお客様の方を見ない）',
+  '……少しだけ、お時間ください',
+];
+
+// ---------- 客の相互作用セリフ ----------
+export const ENVY_LINES = [
+  'あっちは楽しそうだね', 'こっちは何分待ってると思ってるの',
+  '順番、飛ばされてない？', 'あの人、後から来たよね？',
+];
+export const CROWD_LINES = [
+  'うわ、混んでる……', 'これ、何分待ちですか？', '今日は無理かな',
+  '整理券、まだ動いてないよ',
+];
+export const CONTAGION_LINES = [
+  '……なんか、揉めてるね', 'この店、大丈夫？', '帰ろうかな',
+  '（さっきの怒鳴り声が気になる）',
+];
+
+// ============================================================
+// 特殊イベント(店舗全体を揺らす)
+// ============================================================
+// risk : 店が混んでいるほど危険度が上がる。空いていれば処理できる
+// kind : sim 側の処理分岐
+export const SPECIAL_EVENTS = [
+  {
+    id: 'family5', name: '家族5人まとめて機種変更', kind: 'group',
+    count: 5, purpose: '機種変更', diffAdd: 1, weight: 10,
+    line: '家族5人、まとめて機種変更でお願いします',
+    calm: '5人まとめての機種変更。今なら、なんとか捌けそうです',
+    busy: '5人まとめての機種変更。この混雑では致命傷になりかねません',
+  },
+  {
+    id: 'allappleid', name: 'Apple IDが全員不明', kind: 'infect',
+    troubleId: 'appleid', weight: 9,
+    line: 'Apple IDが分からないんです',
+    calm: '接客中の全員がApple IDを覚えていません',
+    busy: '接客中の全員がApple IDを覚えていません。全カウンターが止まりました',
+  },
+  {
+    id: 'lastmnp', name: '閉店10分前にMNP', kind: 'single',
+    purpose: 'MNP', diffAdd: 2, patienceMul: 0.75, weight: 8, lateOnly: true,
+    line: '閉店まであと少しですけど、MNPお願いします',
+    calm: 'この時間にMNP。長期戦になります',
+    busy: 'この時間にMNP。もう誰も手が空いていません',
+  },
+  {
+    id: 'allplans', name: '料金相談のはずが家族全回線見直し', kind: 'escalate',
+    purpose: '料金相談', diffAdd: 3, timeMul: 2.0, weight: 10,
+    line: 'ついでに家族全員分の回線も見てもらえます？',
+    calm: '料金相談が家族全回線の見直しに発展しました',
+    busy: '料金相談が家族全回線の見直しに発展。カウンターが1つ潰れました',
+  },
+  {
+    id: 'differentstory', name: '前の店員に聞いた話と違う', kind: 'claimNow',
+    weight: 9,
+    line: '前の店員さんに聞いた話と全然違うんですけど',
+    calm: '説明の食い違いが発覚しました',
+    busy: '説明の食い違いが発覚。クレームに発展しました',
+  },
+  {
+    id: 'brokenrush', name: '予約なし故障相談が連続来店', kind: 'group',
+    count: 3, purpose: '故障相談', diffAdd: 1, weight: 10,
+    line: '予約してないんですけど、壊れちゃって',
+    calm: '飛び込みの故障相談が3件。今なら順番に見られます',
+    busy: '飛び込みの故障相談が3件。待合が限界です',
+  },
+  {
+    id: 'expertvsrookie', name: 'スマホに詳しい客 vs 新人', kind: 'single',
+    purpose: '「なんかスマホがおかしい」', traitName: '店員より詳しい', diffAdd: 1, weight: 9,
+    line: 'その説明、たぶん間違ってますよ',
+    calm: '詳しいお客様が来店。担当次第では長引きます',
+    busy: '詳しいお客様が来店。新人しか手が空いていません',
+  },
+  {
+    id: 'foundmistake', name: '店員より詳しい客が説明ミスを発見', kind: 'catchMistake',
+    weight: 8,
+    line: '今の説明、公式サイトと違いますよね？',
+    calm: '説明ミスを指摘されました',
+    busy: '説明ミスを指摘され、周囲の客もざわつき始めました',
+  },
+  {
+    id: 'sysdown', name: '契約システムが重い', kind: 'systemSlow',
+    weight: 8,
+    line: '（画面が固まっている）',
+    calm: 'システムが重くなっています。今は影響は小さそうです',
+    busy: 'システムが重くなりました。全カウンターの処理が遅延します',
+  },
+  {
+    id: 'phonerush', name: '電話が鳴り止まない', kind: 'phone',
+    weight: 8,
+    line: '（受話器を取る）',
+    calm: '電話が鳴り続けています。手が空いている店員が対応しました',
+    busy: '電話が鳴り止まず、店員が1人取られました',
+  },
+];
+
+// ============================================================
+// 崩壊タイトル生成用のフレーズ
+// ============================================================
+export const WEEKDAYS = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'];
+
+export const TITLE_FALLBACK = [
+  '静かに壊れた{weekday}',
+  'いつも通りの{weekday}、のはずだった',
+  '誰も悪くない{weekday}',
+  '今日はもう閉めましょう',
+  '平常運転が限界だった日',
+  'そして誰も並ばなくなった',
+];

@@ -13,6 +13,7 @@
 </head>
 <body>
 <canvas id="scene"></canvas>
+<div id="vignette" aria-hidden="true"></div>
 
 <!-- ===== HUD ===== -->
 <div id="hud">
@@ -37,8 +38,15 @@
 
   <div id="banner"></div>
 
+  <!-- 危険な兆候 -->
+  <div id="signs" aria-live="polite"></div>
+
   <div id="bottom">
-    <button id="supportBtn"><span>📣 応援スタッフを呼ぶ</span><i id="supportCd"></i></button>
+    <div id="actions">
+      <button id="supportBtn" class="act"><span>📣 応援</span><i id="supportCd"></i></button>
+      <button id="managerBtn" class="act"><span>🧑‍💼 店長介入</span><i id="managerCd"></i></button>
+      <button id="gateBtn" class="act"><span>🚧 受付制限</span><i id="gateCd"></i></button>
+    </div>
     <div id="log" aria-live="polite"></div>
   </div>
 
@@ -54,6 +62,8 @@
       <li>操作はほとんど不要。眺めて楽しむゲームです</li>
       <li>1本指ドラッグで<b>カメラ回転</b> / ピンチで<b>ズーム</b></li>
       <li>店員や客を<b>タップ</b>すると詳細が見られます</li>
+      <li>介入は<b>応援</b>・<b>店長介入</b>・<b>受付制限</b>の3つだけ</li>
+      <li>小さな問題は<b>連鎖</b>します。兆候を見逃さないように</li>
       <li>平穏度が<b>0</b>になると<b>店舗崩壊</b>で終了</li>
     </ul>
     <div id="records" class="records"></div>
@@ -65,7 +75,9 @@
 <div id="gameover" class="overlay hidden">
   <div class="card over">
     <h2>店舗崩壊</h2>
+    <div id="resultTitle" class="gtitle"></div>
     <div id="resultCause" class="cause"></div>
+    <div id="resultChain" class="chain"></div>
     <div id="resultTable" class="table"></div>
     <div id="resultRecords" class="records"></div>
     <button id="retryBtn">もう一度開店する</button>
