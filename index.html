@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1d2530">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="ケータイショップを眺めるだけの3D放置観察シミュレーション。">
+<title>ケータイショップへようこそ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232f6fb5'/%3E%3Crect x='20' y='12' width='24' height='40' rx='5' fill='%23fdf7ef'/%3E%3Ccircle cx='32' cy='46' r='2.6' fill='%232f6fb5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ===== HUD ===== -->
+<div id="hud">
+  <div id="topbar">
+    <div class="stat peace">
+      <span class="ic">❤️</span><span id="peaceVal">100</span>
+      <div class="bar"><i id="peaceBar"></i></div>
+    </div>
+    <div class="stat"><span class="ic">👥</span><span id="waitVal">0</span></div>
+    <div class="stat"><span class="ic">💢</span><span id="claimVal">0</span></div>
+    <div class="stat wide"><span class="ic">💰</span><span id="salesVal">¥0</span></div>
+    <div class="stat time"><span id="clockVal">10:00</span></div>
+  </div>
+
+  <div id="ctrlbar">
+    <button class="sp" data-sp="0" aria-label="一時停止">⏸</button>
+    <button class="sp on" data-sp="1">×1</button>
+    <button class="sp" data-sp="2">×2</button>
+    <button class="sp" data-sp="4">×4</button>
+    <button id="soundBtn" aria-label="音">🔊</button>
+  </div>
+
+  <div id="banner"></div>
+
+  <div id="bottom">
+    <button id="supportBtn"><span>📣 応援スタッフを呼ぶ</span><i id="supportCd"></i></button>
+    <div id="log" aria-live="polite"></div>
+  </div>
+
+  <div id="panel" class="hidden"></div>
+</div>
+
+<!-- ===== スタート画面 ===== -->
+<div id="start" class="overlay">
+  <div class="card">
+    <h1>ケータイショップ<br><small>へようこそ</small></h1>
+    <p class="lead">3D放置観察シミュレーション</p>
+    <ul class="howto">
+      <li>操作はほとんど不要。眺めて楽しむゲームです</li>
+      <li>1本指ドラッグで<b>カメラ回転</b> / ピンチで<b>ズーム</b></li>
+      <li>店員や客を<b>タップ</b>すると詳細が見られます</li>
+      <li>平穏度が<b>0</b>になると<b>店舗崩壊</b>で終了</li>
+    </ul>
+    <div id="records" class="records"></div>
+    <button id="startBtn">開店する</button>
+  </div>
+</div>
+
+<!-- ===== 結果画面 ===== -->
+<div id="gameover" class="overlay hidden">
+  <div class="card over">
+    <h2>店舗崩壊</h2>
+    <div id="resultCause" class="cause"></div>
+    <div id="resultTable" class="table"></div>
+    <div id="resultRecords" class="records"></div>
+    <button id="retryBtn">もう一度開店する</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+<noscript><p style="color:#fff;padding:2em">このゲームにはJavaScriptが必要です。</p></noscript>
+</body>
+</html>
