@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { CFG } from './config.js';
-import { buildShop, LAYOUT } from './shop.js';
+import { buildShop } from './shop.js';
 import { Game } from './sim.js';
 import { UI } from './ui.js';
 import { Sound } from './audio.js';
@@ -19,7 +19,7 @@ renderer.setClearColor(0x1b2430, 1);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fb6c9);
-scene.fog = new THREE.Fog(0x9fb6c9, 34, 70);
+scene.fog = new THREE.Fog(0x9fb6c9, 46, 100);
 
 const camera = new THREE.PerspectiveCamera(48, 1, 0.5, 120);
 
@@ -35,7 +35,7 @@ scene.add(fill);
 // 地面(店の外)
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshLambertMaterial({ color: 0x8fa08a })
+  new THREE.MeshLambertMaterial({ color: 0x8d9689 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.05;
@@ -53,7 +53,7 @@ const cam = {
   target: new THREE.Vector3(0, 0.9, -0.6),
   tTheta: 0.16, tPhi: 0.70, tRadius: 22,
 };
-const CAM_LIMIT = { phiMin: 0.26, phiMax: 1.12, rMin: 10, rMax: 32 };
+const CAM_LIMIT = { phiMin: 0.26, phiMax: 1.12, rMin: 10, rMax: 34 };
 
 function applyCamera(dt) {
   cam.theta += (cam.tTheta - cam.theta) * Math.min(1, dt * 12);
@@ -136,21 +136,28 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 const clampNum = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-// --- タップ選択 ---
-const raycaster = new THREE.Raycaster();
-const ndc = new THREE.Vector2();
+// --- タップ選択(指でも当てやすいよう画面上の距離で判定) ---
+const projV = new THREE.Vector3();
 function pickAt(clientX, clientY) {
+  if (!game) return;
   const r = canvas.getBoundingClientRect();
-  ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
-  ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
-  raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(game.pickTargets(), true);
-  for (const h of hits) {
-    let o = h.object;
-    while (o && !o.userData.entity) o = o.parent;
-    if (o && o.userData.entity) { ui.select(o.userData.entity); return; }
+  const px = clientX - r.left;
+  const py = clientY - r.top;
+  const reach = Math.max(38, Math.min(r.width, r.height) * 0.085);
+  let best = null;
+  let bestD = reach * reach;
+  for (const root of game.pickTargets()) {
+    const e = root.userData.entity;
+    if (!e) continue;
+    projV.set(root.position.x, 1.15, root.position.z).project(camera);
+    if (projV.z < -1 || projV.z > 1) continue;
+    const sx = (projV.x * 0.5 + 0.5) * r.width;
+    const sy = (-projV.y * 0.5 + 0.5) * r.height;
+    const d = (sx - px) * (sx - px) + (sy - py) * (sy - py);
+    if (d < bestD) { bestD = d; best = e; }
   }
-  ui.hidePanel();
+  if (best) ui.select(best);
+  else ui.hidePanel();
 }
 
 // ============================================================
@@ -221,6 +228,7 @@ function frame(now) {
 
   sound.update();
   applyCamera(dt);
+  updateFov();
   ui.tick(dt);
 
   uiAcc += dt;
@@ -233,21 +241,39 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 
+function updateFov() {
+  const halfH = Math.atan((FRAME_WIDTH / 2) / cam.radius);
+  const fov = clampNum(2 * Math.atan(Math.tan(halfH) / camera.aspect) * 180 / Math.PI, 42, 66);
+  if (Math.abs(fov - camera.fov) > 0.05) {
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  }
+}
+
 // ============================================================
 // リサイズ
 // ============================================================
+// 画面比に合わせて、店の横幅(約16m)が収まるよう画角と距離を決める
+const FRAME_WIDTH = 16.6;
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(w, h, false);
-  camera.aspect = w / Math.max(1, h);
+  const aspect = w / Math.max(1, h);
+  camera.aspect = aspect;
   const portrait = h > w;
-  camera.fov = portrait ? 52 : 45;
+
+  const want = portrait ? 27 : 23;
+  if (!userZoomed) {
+    cam.tRadius = want;
+    if (!camReady) { cam.radius = want; cam.phi = cam.tPhi = portrait ? 0.62 : 0.70; camReady = true; }
+  }
+  // 横方向に FRAME_WIDTH が入る垂直画角を逆算する
+  const halfH = Math.atan((FRAME_WIDTH / 2) / cam.tRadius);
+  const fov = 2 * Math.atan(Math.tan(halfH) / aspect) * 180 / Math.PI;
+  camera.fov = clampNum(fov, 42, 66);
   camera.updateProjectionMatrix();
-  // 縦画面では店全体が入るように引く
-  const want = portrait ? 25.5 : 21.5;
-  if (!userZoomed) { cam.tRadius = want; if (!camReady) { cam.radius = want; camReady = true; } }
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 250));
@@ -321,3 +347,5 @@ requestAnimationFrame(frame);
 
 // デバッグ用フック
 window.__game = () => game;
+window.__cam = () => camera;
+window.__THREE = () => THREE;

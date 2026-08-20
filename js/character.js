@@ -195,6 +195,7 @@ export class Character {
     this.moving = false;
     this.sitting = false;
     this.agitation = 0;   // 0-1 いらだち(足踏み・慌ただしさ)
+    this.rush = 0;        // 0-1 店内の混乱度(全員の動きが慌ただしくなる)
     this.baseY = 0;
     this.arrived = true;
     this.bobT = rand(0, 6.28);
@@ -273,7 +274,7 @@ export class Character {
       const tgt = this.path[this.pathIdx];
       const dx = tgt.x - this.x, dz = tgt.z - this.z;
       const d = Math.hypot(dx, dz);
-      const step = this.speed * (1 + this.agitation * 0.45) * dt;
+      const step = this.speed * (1 + this.agitation * 0.45 + this.rush * 0.3) * dt;
       if (d <= step) {
         this.x = tgt.x; this.z = tgt.z;
         this.pathIdx++;
@@ -322,7 +323,7 @@ export class Character {
     }
 
     if (this.moving) {
-      this.walkPhase += dt * (7.2 + this.agitation * 3.2);
+      this.walkPhase += dt * (7.2 + this.agitation * 3.2 + this.rush * 2.4);
       const s = Math.sin(this.walkPhase);
       const s2 = Math.sin(this.walkPhase * 2);
       this.legL.rotation.x = s * 0.62;

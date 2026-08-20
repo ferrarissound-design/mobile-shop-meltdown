@@ -53,7 +53,7 @@ export const CFG = {
   SUPPORT_COOLDOWN: 220,
 
   // --- 演出 ---
-  RARE_CHANCE: 0.07,         // 特殊案件の発生率
+  RARE_CHANCE: 0.085,         // 特殊案件の発生率
   LOG_MAX: 60,
 };
 

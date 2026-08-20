@@ -418,7 +418,7 @@ export class Game {
       case 'toCounter':
         if (ch.arrived) {
           ch.setSitting(true);
-          ch.angle = 0; // カウンター(奥)を向く
+          ch.angle = Math.PI; // カウンター(奥)を向く
           c.state = 'atCounter';
           c.timer = 14;
         }
@@ -468,7 +468,7 @@ export class Game {
 
   customerLimit(c) {
     if (c.seat !== null && c.seat !== undefined) c.char.setSitting(false);
-    if (chance(0.35)) {
+    if (chance(0.45)) {
       // 店員へ詰め寄る
       c.state = 'complaining';
       c.timer = rand(3.0, 5.0);
@@ -1018,11 +1018,14 @@ export class Game {
 
   updateCharacters(dt, camera) {
     const cx = camera.position.x, cz = camera.position.z;
+    const rush = this.chaos;
     for (const c of this.customers) {
+      c.char.rush = rush;
       const far = (c.char.x - cx) ** 2 + (c.char.z - cz) ** 2 > 400;
       c.char.update(dt, far);
     }
     for (const s of this.staff) {
+      s.char.rush = rush;
       const far = (s.char.x - cx) ** 2 + (s.char.z - cz) ** 2 > 400;
       s.char.update(dt, far);
     }

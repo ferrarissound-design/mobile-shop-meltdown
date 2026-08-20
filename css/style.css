@@ -185,6 +185,18 @@ body.playing #hud{opacity:1}
 /* ---------- 崩壊エフェクト ---------- */
 body.collapsing #scene{filter:saturate(.5) brightness(.55)}
 
+/* ---------- 幅の狭い端末 ---------- */
+@media (max-width:400px){
+  #topbar{gap:5px;overflow:hidden}
+  .stat{font-size:12px;padding:4px 7px}
+  .stat.peace{min-width:70px}
+  #ctrlbar button{min-width:42px}
+}
+@media (max-width:359px){
+  .stat.time{display:none}
+  #ctrlbar button{min-width:38px;font-size:13px}
+}
+
 /* ---------- 横長・PC ---------- */
 @media (min-width:720px){
   #topbar{justify-content:center;gap:8px;padding-top:calc(var(--safe-t) + 10px)}

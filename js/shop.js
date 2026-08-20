@@ -189,8 +189,8 @@ export function buildShop(scene) {
     num.rotation.y = Math.PI;
     g.add(num);
     // 椅子
-    makeChair(g, c.guestSpot.x, c.guestSpot.z, Math.PI);
-    makeChair(g, c.staffSpot.x, c.staffSpot.z, 0);
+    makeChair(g, c.guestSpot.x, c.guestSpot.z, 0);          // 背もたれは入口側=客はカウンターを向く
+    makeChair(g, c.staffSpot.x, c.staffSpot.z, Math.PI);    // 店員は客の方を向く
     // PC
     box(0.5, 0.36, 0.06, 0x3c4450, c.x - 0.6, 1.22, c.z - 0.2, g);
     box(0.55, 0.04, 0.35, 0x6b7480, c.x - 0.6, 1.05, c.z - 0.05, g);
@@ -217,6 +217,49 @@ export function buildShop(scene) {
     pop.rotation.y = dir * -0.25;
   });
   root.add(dispG);
+
+  // ---- 店の外(周辺の景色) ----
+  const ext = new THREE.Group();
+  // 歩道
+  const walk = new THREE.Mesh(new THREE.PlaneGeometry(40, 6), mat(0xc8c3ba));
+  walk.rotation.x = -Math.PI / 2;
+  walk.position.set(0, -0.02, R.maxZ + 3.2);
+  ext.add(walk);
+  // 車道
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(60, 9), mat(0x6d7276));
+  road.rotation.x = -Math.PI / 2;
+  road.position.set(0, -0.04, R.maxZ + 11);
+  ext.add(road);
+  for (let i = -4; i <= 4; i++) {
+    const ln = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.24), mat(0xe8e4d8));
+    ln.rotation.x = -Math.PI / 2;
+    ln.position.set(i * 6, -0.03, R.maxZ + 11);
+    ext.add(ln);
+  }
+  // 隣のビル
+  const bcol = [0xb9b2a6, 0xa8b0b6, 0xc2b09c, 0x9aa39a, 0xb6a9b2];
+  const blocks = [
+    [-21.0, 2.0, 8.0, 10.0, 6], [21.0, 1.0, 8.0, 10.0, 7],
+    [-20.0, -14.0, 10.0, 8.0, 5], [20.5, -14.5, 10.0, 8.0, 6],
+    [0.0, -22.0, 20.0, 8.0, 6],
+    [-14.0, 21.0, 11.0, 8.0, 6], [13.0, 21.5, 13.0, 8.0, 7],
+  ];
+  blocks.forEach(([x, z, w, d, h], i) => {
+    const b = box(w, h, d, bcol[i % bcol.length], x, h / 2, z, ext);
+    // 窓のライン
+    for (let k = 1; k < Math.floor(h / 2.2); k++) {
+      const win = box(w * 0.86, 0.5, d * 0.86, 0x77848c, x, k * 2.2, z, ext);
+      win.renderOrder = 1;
+    }
+  });
+  // 街路樹
+  [[-11.5, 9.5], [11.5, 9.5], [-4.5, 9.8], [5.5, 9.8]].forEach(([x, z]) => {
+    box(0.3, 1.3, 0.3, 0x7a6046, x, 0.65, z, ext);
+    const t2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 0), mat(0x6a9e63));
+    t2.position.set(x, 2.1, z);
+    ext.add(t2);
+  });
+  root.add(ext);
 
   // ---- 観葉植物 ----
   [[-8.2, 6.6], [8.2, -1.0 + 8.0]].forEach(([x, z]) => {
