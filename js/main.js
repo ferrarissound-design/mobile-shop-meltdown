@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { CFG } from './config.js';
+import { CFG, ATMOS } from './config.js';
 import { buildShop } from './shop.js';
 import { Game } from './sim.js';
 import { UI } from './ui.js';
@@ -24,7 +24,8 @@ scene.fog = new THREE.Fog(0x9fb6c9, 46, 100);
 const camera = new THREE.PerspectiveCamera(48, 1, 0.5, 120);
 
 // ライト(影なし・軽量)
-scene.add(new THREE.HemisphereLight(0xffffff, 0x9c907f, 1.05));
+const hemi = new THREE.HemisphereLight(ATMOS.hemiCalm, ATMOS.groundCalm, 1.05);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2dc, 0.62);
 sun.position.set(7, 14, 9);
 scene.add(sun);
@@ -228,6 +229,7 @@ function frame(now) {
 
   sound.update();
   applyCamera(dt);
+  updateAtmos(dt);
   updateFov();
   ui.tick(dt);
 
@@ -239,6 +241,34 @@ function frame(now) {
   }
 
   renderer.render(scene, camera);
+}
+
+// ============================================================
+// 店内の空気 — 平穏度が下がると照明と空が少しずつ不穏になる
+// (毎フレーム色を作り直さないよう、変化したときだけ更新する)
+// ============================================================
+const _skyCalm = new THREE.Color(ATMOS.skyCalm);
+const _skyBad = new THREE.Color(ATMOS.skyBad);
+const _hemiCalm = new THREE.Color(ATMOS.hemiCalm);
+const _hemiBad = new THREE.Color(ATMOS.hemiBad);
+const _grdCalm = new THREE.Color(ATMOS.groundCalm);
+const _grdBad = new THREE.Color(ATMOS.groundBad);
+let atmosLevel = -1;
+let atmosShown = 0;
+
+function updateAtmos(dt) {
+  const target = game && started ? Math.min(1, Math.max(0, (game.chaos - 0.18) / 0.62)) : 0;
+  atmosShown += (target - atmosShown) * Math.min(1, dt * 0.9);
+  // 5% 刻みでしか色を作り直さない(モバイルでの無駄を避ける)
+  const q = Math.round(atmosShown * 20) / 20;
+  if (q === atmosLevel) return;
+  atmosLevel = q;
+  scene.background.copy(_skyCalm).lerp(_skyBad, q);
+  scene.fog.color.copy(scene.background);
+  hemi.color.copy(_hemiCalm).lerp(_hemiBad, q);
+  hemi.groundColor.copy(_grdCalm).lerp(_grdBad, q);
+  hemi.intensity = 1.05 - q * 0.3;
+  sun.intensity = 0.62 - q * 0.22;
 }
 
 function updateFov() {
@@ -302,6 +332,14 @@ document.getElementById('soundBtn').addEventListener('click', (e) => {
 
 document.getElementById('supportBtn').addEventListener('click', () => {
   if (game && game.callSupport()) sound.sfx('good');
+});
+
+document.getElementById('managerBtn').addEventListener('click', () => {
+  if (game && game.callManager()) sound.sfx('good');
+});
+
+document.getElementById('gateBtn').addEventListener('click', () => {
+  if (game && game.toggleGate()) sound.sfx('alert');
 });
 
 document.getElementById('startBtn').addEventListener('click', () => {

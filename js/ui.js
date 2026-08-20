@@ -10,11 +10,17 @@ export class UI {
       claimVal: $('claimVal'), salesVal: $('salesVal'), clockVal: $('clockVal'),
       banner: $('banner'), log: $('log'), panel: $('panel'),
       supportBtn: $('supportBtn'), supportCd: $('supportCd'),
+      managerBtn: $('managerBtn'), managerCd: $('managerCd'),
+      gateBtn: $('gateBtn'), gateCd: $('gateCd'),
+      signs: $('signs'), vignette: $('vignette'),
       start: $('start'), gameover: $('gameover'),
-      resultCause: $('resultCause'), resultTable: $('resultTable'),
+      resultTitle: $('resultTitle'),
+      resultCause: $('resultCause'), resultChain: $('resultChain'), resultTable: $('resultTable'),
       resultRecords: $('resultRecords'), records: $('records'),
     };
     this.bannerTimer = 0;
+    this._signKey = '';
+    this._vig = -1;
     this.selected = null;
     this.el.panel.addEventListener('click', (e) => {
       if (e.target.classList.contains('close')) this.hidePanel();
@@ -33,16 +39,90 @@ export class UI {
     this.el.salesVal.textContent = '¥' + Math.round(g.stats.sales).toLocaleString('ja-JP');
     this.el.clockVal.textContent = g.clock();
 
-    const cd = g.supportCooldown;
-    const btn = this.el.supportBtn;
-    if (cd > 0) {
+    this.setAction(this.el.supportBtn, this.el.supportCd, g.supportCooldown, CFG.SUPPORT_COOLDOWN,
+      '📣 応援', '📣 応援');
+
+    // 店長介入(発動中は残り時間を出す)
+    if (g.managerTimer > 0) {
+      this.el.managerBtn.disabled = true;
+      this.el.managerCd.style.width = (g.managerTimer / CFG.MANAGER_DURATION) * 100 + '%';
+      this.el.managerBtn.firstElementChild.textContent = `🧑‍💼 介入中 ${Math.ceil(g.managerTimer)}s`;
+    } else {
+      this.setAction(this.el.managerBtn, this.el.managerCd, g.managerCooldown, CFG.MANAGER_COOLDOWN,
+        '🧑‍💼 店長介入', '🧑‍💼 店長介入');
+    }
+
+    // 受付制限(トグル)
+    const gb = this.el.gateBtn;
+    gb.classList.toggle('on', g.gateOn);
+    if (g.gateOn) {
+      gb.disabled = false;
+      this.el.gateCd.style.width = (g.gateTimer / CFG.GATE_DURATION) * 100 + '%';
+      gb.firstElementChild.textContent = `🚧 制限中 ${Math.ceil(g.gateTimer)}s`;
+    } else {
+      this.setAction(gb, this.el.gateCd, g.gateCooldown, CFG.GATE_COOLDOWN,
+        '🚧 受付制限', '🚧 受付制限');
+    }
+
+    this.setSigns(g);
+  }
+
+  setAction(btn, cd, remain, total, label, labelReady) {
+    if (remain > 0) {
       btn.disabled = true;
-      this.el.supportCd.style.width = (100 - (cd / CFG.SUPPORT_COOLDOWN) * 100) + '%';
-      btn.firstElementChild.textContent = `📣 応援 (${Math.ceil(cd)}s)`;
-    } else if (btn.disabled) {
-      btn.disabled = false;
-      this.el.supportCd.style.width = '0%';
-      btn.firstElementChild.textContent = '📣 応援スタッフを呼ぶ';
+      cd.style.width = (100 - (remain / total) * 100) + '%';
+      btn.firstElementChild.textContent = `${label} (${Math.ceil(remain)}s)`;
+    } else {
+      if (btn.disabled) btn.disabled = false;
+      cd.style.width = '0%';
+      if (btn.firstElementChild.textContent !== labelReady) {
+        btn.firstElementChild.textContent = labelReady;
+      }
+    }
+  }
+
+  /** 「これはそろそろヤバい」を言語化して並べる */
+  setSigns(g) {
+    const out = [];
+    const q = g.waitingCount;
+    if (q >= 10) out.push(['bad', `待ち ${q}人`]);
+    else if (q >= 6) out.push(['', `待ち ${q}人`]);
+
+    const stressed = g.staff.filter((s) => s.tierIndex >= 2 && !s.away).length;
+    const limit = g.staff.filter((s) => s.tierIndex >= 3 && !s.away).length;
+    if (limit) out.push(['bad', `限界寸前の店員 ${limit}人`]);
+    else if (stressed) out.push(['', `高ストレス ${stressed}人`]);
+
+    const angry = g.customers.filter((c) => c.anger >= 80).length;
+    if (angry >= 3) out.push(['bad', `限界の客 ${angry}人`]);
+    else if (angry) out.push(['', `怒っている客 ${angry}人`]);
+
+    const free = g.freeStaff.length;
+    if (free === 0 && q > 0) out.push(['bad', '手が空いた店員なし']);
+    if (g.systemSlow > 0) out.push(['', 'システム遅延中']);
+    if (g.managerTimer > 0) out.push(['calm', '店長 対応中']);
+    if (g.gateOn) out.push(['', '受付制限中']);
+    const wait = Math.round(g.stats.maxWait);
+    if (wait >= 15) out.push(['bad', `最大待ち ${wait}分`]);
+    if (!out.length && g.peace > 82) out.push(['calm', '店内は落ち着いています']);
+
+    const key = out.map((o) => o.join(':')).join('|');
+    if (key !== this._signKey) {
+      this._signKey = key;
+      this.el.signs.innerHTML = '';
+      for (const [cls, text] of out) {
+        const sp = document.createElement('span');
+        if (cls) sp.className = cls;
+        sp.textContent = text;
+        this.el.signs.appendChild(sp);
+      }
+    }
+
+    // 平穏度が下がるほど画面の縁が不穏になる
+    const v = Math.round(Math.min(1, Math.max(0, g.chaos - 0.25) / 0.6) * 20) / 20;
+    if (v !== this._vig) {
+      this._vig = v;
+      this.el.vignette.style.opacity = String(v);
     }
   }
 
@@ -137,16 +217,58 @@ export class UI {
       ['メンタル崩壊した店員', stats.meltdowns + '人'],
     ];
     if (stats.quits) rows.push(['帰宅した店員', stats.quits + '人']);
+    if (stats.specialEvents) rows.push(['特殊イベント', stats.specialEvents + '件']);
+    if (stats.claims) rows.push(['クレーム対応', stats.claims + '件']);
+    if (stats.mismatch) rows.push(['力量外の案件担当', stats.mismatch + '件']);
+    if (stats.turnedAway) rows.push(['入店できなかった客', stats.turnedAway + '人']);
     this.el.resultTable.innerHTML = rows
       .map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('');
-    this.el.resultCause.innerHTML = '<b>今回の主な崩壊原因</b>';
+
+    // 自動生成タイトル
+    this.el.resultTitle.innerHTML = '<small>今回の店舗崩壊</small>';
+    const t = document.createElement('span');
+    t.textContent = '「' + (stats.title || '静かに壊れた日') + '」';
+    this.el.resultTitle.appendChild(t);
+
+    this.el.resultCause.innerHTML = '<b>主因</b>';
     const span = document.createElement('span');
     span.textContent = stats.cause;
     this.el.resultCause.appendChild(span);
+
+    this.showChain(stats.chain);
     const { rec, updated } = this.saveRecords(stats);
     this.showRecords(this.el.resultRecords, rec, updated);
     this.el.gameover.classList.remove('hidden');
   }
+  /** 崩壊までの連鎖を縦に並べる */
+  showChain(chain) {
+    const box = this.el.resultChain;
+    box.innerHTML = '';
+    if (!chain || chain.length < 2) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const head = document.createElement('b');
+    head.textContent = '崩壊までの連鎖';
+    box.appendChild(head);
+    chain.forEach((step, i) => {
+      if (i > 0) {
+        const a = document.createElement('div');
+        a.className = 'arrow';
+        a.textContent = '↓';
+        box.appendChild(a);
+      }
+      const d = document.createElement('div');
+      d.className = 'step' + (i === 0 ? ' first' : '') + (i === chain.length - 1 ? ' last' : '');
+      d.style.animationDelay = (i * 0.09).toFixed(2) + 's';
+      const time = document.createElement('time');
+      time.textContent = step.clock || '';
+      const em = document.createElement('em');
+      em.textContent = step.label;
+      d.appendChild(time);
+      d.appendChild(em);
+      box.appendChild(d);
+    });
+  }
+
   hideGameOver() { this.el.gameover.classList.add('hidden'); }
 }
 
@@ -164,7 +286,7 @@ function staffPanel(s) {
   return `<button class="close" aria-label="閉じる">×</button>
   <h3>${esc(s.name)}<span class="tag">店員</span></h3>
   <div class="row"><b>タイプ</b><span>${esc(s.type.name)}</span></div>
-  <div class="row"><b>ストレス</b><span>${Math.round(s.stress)}/100</span></div>
+  <div class="row"><b>ストレス</b><span>${['低', '中', '高', '限界'][s.tierIndex]} / ${Math.round(s.stress)}</span></div>
   ${meter(s.stress, 100, stressColor)}
   <div class="row"><b>疲労</b><span>${Math.round(s.fatigue)}/100</span></div>
   ${meter(s.fatigue, 100, '#8ec3ff')}
@@ -172,7 +294,10 @@ function staffPanel(s) {
   ${meter(s.mental, 100, '#c4a6ff')}
   <div class="row"><b>接客能力</b><span>${Math.round(s.skill * 100)}</span></div>
   <div class="row"><b>処理速度</b><span>×${s.speedStat.toFixed(2)}</span></div>
+  <div class="row"><b>接客速度</b><span>×${s.speedMul.toFixed(2)}</span></div>
+  <div class="row"><b>ミス率</b><span>×${s.mistakeMul.toFixed(2)}</span></div>
   <div class="row"><b>対応人数</b><span>${s.served}人</span></div>
+  <div class="row"><b>クレーム対応</b><span>${s.claims}件</span></div>
   <div class="row"><b>売上</b><span>¥${Math.round(s.sales).toLocaleString('ja-JP')}</span></div>
   <div class="row"><b>現在の客</b><span>${s.customer ? esc(s.customer.label) : '—'}</span></div>
   <div class="row"><b>状態</b><span>${esc(staffStateText(s))}</span></div>`;
@@ -180,8 +305,11 @@ function staffPanel(s) {
 
 function staffStateText(s) {
   return {
-    idle: '待機中', toCounter: 'カウンターへ移動中', waitingGuest: 'お客様を待っている',
-    serving: '接客中', wrapup: '事後処理中', toBreak: 'バックヤードへ移動中',
+    idle: s.refuse > 0 ? '新規対応を避けている' : '待機中',
+    toCounter: 'カウンターへ移動中', waitingGuest: 'お客様を待っている',
+    serving: s.panicTimer > 0 ? 'パニック中' : '接客中',
+    wrapup: '事後処理中', toBreak: 'バックヤードへ移動中',
+    toClaim: 'クレーム対応へ移動中', claim: 'クレーム対応中',
     break: 'バックヤードで休憩中', meltdown: 'メンタル崩壊', gone: '退勤中',
   }[s.state] || s.state;
 }
@@ -199,6 +327,8 @@ function customerPanel(c) {
   <div class="row"><b>待ち時間</b><span>${Math.round(c.waitTime * CFG.GAME_MIN_PER_SEC)}分</span></div>
   <div class="row"><b>忍耐力</b><span>${Math.round(c.patience)}</span></div>
   <div class="row"><b>案件難易度</b><span>${'★'.repeat(c.difficulty)}</span></div>
+  ${c.mismatch ? '<div class="row"><b>担当</b><span>力量とかみ合っていない</span></div>' : ''}
+  ${c.entryShock > 0.02 ? `<div class="row"><b>入店時の行列</b><span>忍耐 -${Math.round(c.entryShock * 100)}%</span></div>` : ''}
   <div class="row"><b>状態</b><span>${esc(c.stateText())}</span></div>
   <div class="traits">${c.traits.map((t) => `<span>${esc(t.name)}</span>`).join('')}</div>`;
 }

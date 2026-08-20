@@ -16,10 +16,14 @@ const G = {
   shadow: new THREE.CircleGeometry(0.34, 12),
   collar: new THREE.BoxGeometry(0.52, 0.1, 0.32),
   bag: new THREE.BoxGeometry(0.26, 0.3, 0.14),
+  aura: new THREE.RingGeometry(0.40, 0.62, 16),
 };
 G.shadow.rotateX(-Math.PI / 2);
+G.aura.rotateX(-Math.PI / 2);
 
 const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16, depthWrite: false });
+// 怒っている客の足元に出す赤いリング(マテリアルは全員で共有して軽量に保つ)
+const auraMat = new THREE.MeshBasicMaterial({ color: 0xff4d3d, transparent: true, opacity: 0.42, depthWrite: false });
 const matCache = new Map();
 function m(color) {
   let mm = matCache.get(color);
@@ -196,6 +200,11 @@ export class Character {
     this.sitting = false;
     this.agitation = 0;   // 0-1 いらだち(足踏み・慌ただしさ)
     this.rush = 0;        // 0-1 店内の混乱度(全員の動きが慌ただしくなる)
+    this.slump = 0;       // 0-1 疲労で姿勢が落ちる
+    this._slump = 0;      // 補間後の値
+    this.aura = null;     // 怒りエフェクト(必要になってから作る)
+    this.auraLevel = 0;
+    this.auraT = 0;
     this.baseY = 0;
     this.arrived = true;
     this.bobT = rand(0, 6.28);
@@ -238,6 +247,23 @@ export class Character {
       this.armL.rotation.x = 0; this.armR.rotation.x = 0;
       this.shadow.visible = true;
     }
+  }
+
+  /** 怒りエフェクトの強さ 0-1(0で非表示) */
+  setAura(level) {
+    if (level <= 0) {
+      this.auraLevel = 0;
+      if (this.aura) this.aura.visible = false;
+      return;
+    }
+    if (!this.aura) {
+      this.aura = new THREE.Mesh(G.aura, auraMat);
+      this.aura.position.y = 0.03;
+      this.aura.renderOrder = 2;
+      this.root.add(this.aura);
+    }
+    this.auraLevel = level;
+    this.aura.visible = true;
   }
 
   setIcon(ch) {
@@ -303,19 +329,33 @@ export class Character {
     }
     if (this.gesture > 0) this.gesture = Math.max(0, this.gesture - dt * 1.6);
 
+    // 怒りリングの脈動(スケールだけを動かすのでマテリアルは共有のまま)
+    if (this.aura && this.auraLevel > 0) {
+      this.auraT += dt * (2.2 + this.auraLevel * 2.6);
+      const k = (0.85 + this.auraLevel * 0.5) * (1 + Math.sin(this.auraT) * 0.12);
+      this.aura.scale.set(k, k, k);
+      this.aura.position.y = this.sitting ? 0.19 : 0.03;
+    }
+
     if (far) {
       this.frameSkip = (this.frameSkip + 1) % 3;
       if (this.frameSkip !== 0) return;
       dt *= 3;
     }
 
+    // 疲労による姿勢の変化はゆっくり効かせる
+    this._slump += (this.slump - this._slump) * Math.min(1, dt * 2.5);
+    const sl = this._slump;
+
     // アニメーション
     if (this.sitting) {
-      this.bobT += dt * 1.4;
+      this.bobT += dt * (1.4 - sl * 0.5);
       const b = Math.sin(this.bobT) * 0.012;
-      this.torso.position.y = 1.12 + b;
-      this.head.position.y = 1.62 + b;
-      const g = this.gesture * Math.sin(this.bobT * 7) * 0.35;
+      this.torso.position.y = 1.12 + b - sl * 0.05;
+      this.head.position.y = 1.62 + b - sl * 0.08;
+      this.torso.rotation.x = sl * 0.14;
+      this.head.rotation.x = sl * 0.24;
+      const g = this.gesture * Math.sin(this.bobT * 7) * 0.35 * (1 - sl * 0.5);
       this.armR.rotation.x = -0.55 + g;
       this.armL.rotation.x = -0.55 - g * 0.4;
       this.head.rotation.z = Math.sin(this.bobT * 2.2) * 0.04 + this.agitation * Math.sin(this.bobT * 9) * 0.09;
@@ -323,15 +363,19 @@ export class Character {
     }
 
     if (this.moving) {
-      this.walkPhase += dt * (7.2 + this.agitation * 3.2 + this.rush * 2.4);
+      // 疲れているほど歩幅が小さく、足取りが重くなる
+      this.walkPhase += dt * (7.2 + this.agitation * 3.2 + this.rush * 2.4 - sl * 2.0);
       const s = Math.sin(this.walkPhase);
       const s2 = Math.sin(this.walkPhase * 2);
-      this.legL.rotation.x = s * 0.62;
-      this.legR.rotation.x = -s * 0.62;
-      this.armL.rotation.x = -s * 0.5;
-      this.armR.rotation.x = s * 0.5;
-      this.root.position.y = Math.abs(s2) * 0.035;
+      const amp = 1 - sl * 0.45;
+      this.legL.rotation.x = s * 0.62 * amp;
+      this.legR.rotation.x = -s * 0.62 * amp;
+      this.armL.rotation.x = -s * 0.5 * amp;
+      this.armR.rotation.x = s * 0.5 * amp;
+      this.root.position.y = Math.abs(s2) * 0.035 * amp;
       this.head.rotation.z = 0;
+      this.head.rotation.x = sl * 0.26;
+      this.torso.rotation.x = sl * 0.15;
       this.torso.rotation.z = s * 0.03;
     } else if (this.agitation > 0.35) {
       // 足踏み
@@ -343,6 +387,8 @@ export class Character {
       this.armR.rotation.x = -s * 0.22;
       this.root.position.y = 0;
       this.head.rotation.z = Math.sin(this.walkPhase * 1.7) * 0.12;
+      this.head.rotation.x = sl * 0.26;
+      this.torso.rotation.x = sl * 0.15;
       this.torso.rotation.z = 0;
     } else {
       this.bobT += dt * 1.6;
@@ -353,9 +399,11 @@ export class Character {
       this.armL.rotation.x = -g * 0.3 + Math.sin(this.bobT * 0.9) * 0.03;
       this.armR.rotation.x = g + Math.sin(this.bobT * 0.9 + 1) * 0.03;
       this.root.position.y = b * 0.5;
-      this.torso.position.y = 1.12 + b;
-      this.head.position.y = 1.62 + b;
+      this.torso.position.y = 1.12 + b - sl * 0.05;
+      this.head.position.y = 1.62 + b - sl * 0.09;
       this.head.rotation.z = Math.sin(this.bobT * 0.7) * 0.05;
+      this.head.rotation.x = sl * 0.3;
+      this.torso.rotation.x = sl * 0.17;
       this.torso.rotation.z = 0;
     }
   }
